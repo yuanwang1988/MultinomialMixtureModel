@@ -1,0 +1,31 @@
+In the new data split, movies with less than 200 ratings are removed (leaving
+90 movies). Otherwise there are too many parameters and the model overfits too
+easily. Each row in these sets corresponds to users, and each column
+corresponds to movies. There is no overlap between users in the train/test
+set.
+ 
+Note that this model is very sensitive to random seeds.
+
+Also here are some tips to deal with numerical issues:
+
+* In the E-step make sure to compute everything in log-space. When it comes 
+time to compute the responsibilities, you can use the following identity:
+   a / sum(a) = exp(log(a) - logsumexp(a))
+
+* For the M-step there is a risk that the denominator becomes 0 (this can 
+happen with some of the beta values). You can add 1e-32 to make sure it is 
+not exactly 0. Then, if you do the 1e-32 trick, you should make sure the beta 
+values still normalize across ratings. You can do this by adding 1e-32 to 
+each new beta value, and then re-normalizing.
+
+* You should make sure that after implementing any tricks that the
+log-likelihood still monotonically increases with each EM step (on the
+training set).
+
+* For python users, they can find logsumexp implemented in the scipy.misc
+package. For matlab users you can find it in implemented in Mark Schmidt's
+minfunc package.
+
+
+
+
