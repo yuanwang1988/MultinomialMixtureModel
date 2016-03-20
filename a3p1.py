@@ -64,8 +64,8 @@ print 'Test set size: {}'.format(test_movies.shape)
 sofItr = 5
 hardItr = 25
 
-nFolds = 3
-nRandStarts = 2
+nFolds = 8
+nRandStarts = 5
 
 kf = KFold(train_movies.shape[0], nFolds)
 
@@ -80,6 +80,9 @@ for K_idx in xrange(len(nClusterArray)):
 	fold_idx = 0
 	for train, valid in kf:
 		for s in xrange(nRandStarts):
+			print '#####################'
+			print 'nClusters = {}'.format(K)
+			print '#####################'
 			MultinomialMM_model = MultinomialMixtureModel(5, K)
 			MultinomialMM_model.fit(train_movies[train], sofItr, hardItr, 0.000000001)
 
