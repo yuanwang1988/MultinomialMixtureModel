@@ -1,6 +1,99 @@
 import numpy as np 
 np.set_printoptions(threshold=np.nan)
 
+class MultinomialMixtureModel(object):
+	def __init__(self, nClasses, nClusters):
+		self.beta = None
+		self.theta = None
+		self.V = nClasses
+		self.K = nClusters
+
+	def fit(self, data, hardMaxItr, softMaxItr, tol):
+		print '=========================='
+		print 'Expectation Maximization'
+		print '=========================='
+
+		print '------------------------'
+		print 'DiagnosticTesting K = 1'
+		print '------------------------'
+
+		diagnosticK1(data, 5, 'hard')
+		diagnosticK1(data, 5, 'soft')
+
+		print '------------------'
+		print 'Initialization:'
+		print '------------------'
+
+		#Setting Parameters
+		N = data.shape[0]
+		M = data.shape[1]
+		V = self.V
+		K = self.K
+
+		hard_itr = hardMaxItr
+		soft_itr = softMaxItr
+
+		print 'Settings:'
+		print 'N: {}, M: {}, V: {}, K: {}'.format(N, M, V, K)
+		print 'Hard assignment - {} iterations'.format(hard_itr)
+		print 'Soft assignment - {} iterations'.format(soft_itr)
+
+		print '-------'
+
+		#Initialize beta and theta
+		if self.theta == None:
+			self.theta = np.ones(K)/K
+			self.beta = np.random.uniform(1, 100, (K, M, V))
+			for k in xrange(K):
+				for m in xrange(M):
+					self.beta[k,m,:] = self.beta[k,m,:]/np.sum(self.beta[k,m,:])
+
+		rating_frequency = rating_freq(data, V)
+
+		#print initial results
+		print 'Shape of theta: {}'.format(self.theta.shape)
+		print 'Shape of beta: {}'.format(self.beta.shape)
+
+		ll = log_likelihood(data, self.beta, self.theta)
+
+		print 'Log likelihood: {}'.format(ll)
+
+		print '------------------'
+		print 'clustering:'
+		print '------------------'
+
+		for i in xrange(hard_itr):
+			Q_z = expectation_step(data, self.beta, self.theta)
+			(self.beta, self.theta) = max_step(data, Q_z, V)
+			ll = log_likelihood(data, self.beta, self.theta)
+			print 'Log likelihood: {}'.format(ll)
+
+
+		beta_marg = np.zeros([M,V])
+		for k in xrange(K):
+			beta_marg += self.beta[k,:,:]*self.theta[k]
+
+		print 'check: {}'.format(np.sum(np.square(beta_marg-rating_frequency)))
+
+
+		print '------------------'
+		print 'Multinomial Mix:'
+		print '------------------'
+		for i in xrange(soft_itr):
+			Q_z = expectation_step(data, self.beta, self.theta)
+			(self.beta, self.theta) = max_step(data, Q_z, V)
+			ll = log_likelihood(data, self.beta, self.theta)
+			print 'Log likelihood: {}'.format(ll)
+
+	def eval(self, test_data):
+		ll = log_likelihood(test_data, self.beta, self.theta)
+
+		return ll
+
+
+
+
+
 ################################
 #EM Functions - Public
 ################################
@@ -288,11 +381,11 @@ def rating_freq(rating_matrix, V):
 
 	return rating_freqs
 
-def diagnosticK1(train_movies, V, hard_soft_flag):
+def diagnosticK1(data, V, hard_soft_flag):
 	'''
 	Purpose: perform diagnostic by comparing result of K=1 vs. simple frequency count. Expect to be the same.
 	Input:
-		- train_movies - NxM - rows are users and columns are movies
+		- data - NxM - rows are users and columns are movies
 		- V - integer indicating the maximum rating
 		- hard_soft_flag - string = {'hard', 'soft'} - indicate whether we want to test hard or soft assignment
 
@@ -300,8 +393,8 @@ def diagnosticK1(train_movies, V, hard_soft_flag):
 		- None
 		- If test passed, print message; Otherwise, assertion fail
 	'''
-	N = train_movies.shape[0]
-	M = train_movies.shape[1]
+	N = data.shape[0]
+	M = data.shape[1]
 
 	V = 5
 	K = 1
@@ -316,13 +409,13 @@ def diagnosticK1(train_movies, V, hard_soft_flag):
 		for m in xrange(M):
 			beta[k,m,:] = beta[k,m,:]/np.sum(beta[k,m,:])
 
-	rating_frequency = rating_freq(train_movies, V)
+	rating_frequency = rating_freq(data, V)
 
 	#print initial results
 	# print 'Shape of theta: {}'.format(theta.shape)
 	# print 'Shape of beta: {}'.format(beta.shape)
 
-	ll = log_likelihood(train_movies, beta, theta)
+	ll = log_likelihood(data, beta, theta)
 
 	# print 'Log likelihood: {}'.format(ll)
 
@@ -331,9 +424,9 @@ def diagnosticK1(train_movies, V, hard_soft_flag):
 	# print '------------------'
 	if hard_soft_flag == 'hard':
 		for i in xrange(hard_itr):
-			Q_z = expectation_step(train_movies, beta, theta)
-			(beta, theta) = max_step(train_movies, Q_z, V)
-			ll = log_likelihood(train_movies, beta, theta)
+			Q_z = expectation_step(data, beta, theta)
+			(beta, theta) = max_step(data, Q_z, V)
+			ll = log_likelihood(data, beta, theta)
 			# print 'Log likelihood: {}'.format(ll)
 
 		beta_marg = np.zeros([M,V])
@@ -346,9 +439,9 @@ def diagnosticK1(train_movies, V, hard_soft_flag):
 	# print '------------------'
 	else:
 		for i in xrange(soft_itr):
-			Q_z = expectation_step(train_movies, beta, theta)
-			(beta, theta) = max_step(train_movies, Q_z, V)
-			ll = log_likelihood(train_movies, beta, theta)
+			Q_z = expectation_step(data, beta, theta)
+			(beta, theta) = max_step(data, Q_z, V)
+			ll = log_likelihood(data, beta, theta)
 			# print 'Log likelihood: {}'.format(ll)
 
 		beta_marg = np.zeros([M,V])

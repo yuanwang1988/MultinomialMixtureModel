@@ -1,10 +1,11 @@
 import numpy as np 
 import scipy.io
+from sklearn.cross_validation import KFold
 
 np.set_printoptions(threshold=np.nan)
 
 from utils import movie_filter
-from MultinomialMM import expectation_step, max_step, rating_freq, log_likelihood, diagnosticK1
+from MultinomialMM import expectation_step, max_step, rating_freq, log_likelihood, diagnosticK1, MultinomialMixtureModel
 
 a3data_dic = scipy.io.loadmat('a3dataFinal.mat')
 
@@ -45,8 +46,6 @@ print '=========================='
 print 'Pre-processed Data'
 print '=========================='
 
-
-
 train_movies = a3data_dic['train_data']
 filtered_movie_indices = movie_filter(train_movies, 200)
 train_movies = train_movies[:, filtered_movie_indices]
@@ -59,94 +58,130 @@ print 'Training set size: {}'.format(train_movies.shape)
 print 'Test set size: {}'.format(test_movies.shape)
 
 
-#################################
-#Expectation Maximization
-#################################
+########################################################
+#Use cross-validation to find best number of clusters
+########################################################
+sofItr = 5
+hardItr = 25
 
-print '=========================='
-print 'Expectation Maximization'
-print '=========================='
+nFolds = 3
+nRandStarts = 2
 
-print '------------------------'
-print 'DiagnosticTesting K = 1'
-print '------------------------'
+kf = KFold(train_movies.shape[0], nFolds)
 
-diagnosticK1(train_movies, 5, 'hard')
-diagnosticK1(train_movies, 5, 'soft')
+nClusterArray = [1, 2, 5, 8, 10, 15, 20, 25, 30]
+#nClusterArray = [1]
+trainLLMat = np.zeros([len(nClusterArray), nFolds, nRandStarts])
+validLLMat = np.zeros([len(nClusterArray), nFolds, nRandStarts])
 
-print '------------------'
-print 'Initialization:'
-print '------------------'
+for K_idx in xrange(len(nClusterArray)):
+	K = nClusterArray[K_idx]
 
-#Setting Parameters
-N = train_movies.shape[0]
-M = train_movies.shape[1]
-V = 5
-K = 25
+	fold_idx = 0
+	for train, valid in kf:
+		for s in xrange(nRandStarts):
+			MultinomialMM_model = MultinomialMixtureModel(5, K)
+			MultinomialMM_model.fit(train_movies[train], sofItr, hardItr, 0.000000001)
 
-hard_itr = 5
-soft_itr = 5
+			train_ll = MultinomialMM_model.eval(train_movies[train])
+			valid_ll = MultinomialMM_model.eval(train_movies[valid])
 
-print 'Settings:'
-print 'N: {}, M: {}, V: {}, K: {}'.format(N, M, V, K)
-print 'Hard assignment - {} iterations'.format(hard_itr)
-print 'Soft assignment - {} iterations'.format(soft_itr)
+			trainLLMat[K_idx, fold_idx, s] = train_ll
+			validLLMat[K_idx, fold_idx, s] = valid_ll
 
-print '-------'
+		fold_idx = fold_idx + 1
 
-#Initialize beta and theta
-theta = np.ones(K)/K
-beta = np.random.uniform(1, 100, (K, M, V))
-for k in xrange(K):
-	for m in xrange(M):
-		beta[k,m,:] = beta[k,m,:]/np.sum(beta[k,m,:])
-
-rating_frequency = rating_freq(train_movies, V)
-
-#print initial results
-print 'Shape of theta: {}'.format(theta.shape)
-print 'Shape of beta: {}'.format(beta.shape)
-
-ll = log_likelihood(train_movies, beta, theta)
-
-print 'Log likelihood: {}'.format(ll)
-
-print '------------------'
-print 'clustering:'
-print '------------------'
-
-for i in xrange(hard_itr):
-	Q_z = expectation_step(train_movies, beta, theta)
-	(beta, theta) = max_step(train_movies, Q_z, V)
-	ll = log_likelihood(train_movies, beta, theta)
-	print 'Log likelihood: {}'.format(ll)
+np.savez('a3p1crossval', nClusterArray = nClusterArray, trainLLMat = trainLLMat, validLLMat = validLLMat)
 
 
-beta_marg = np.zeros([M,V])
-for k in xrange(K):
-	beta_marg += beta[k,:,:]*theta[k]
+# #################################
+# #Expectation Maximization
+# #################################
 
-print 'check: {}'.format(np.sum(np.square(beta_marg-rating_frequency)))
+# print '=========================='
+# print 'Expectation Maximization'
+# print '=========================='
+
+# print '------------------------'
+# print 'DiagnosticTesting K = 1'
+# print '------------------------'
+
+# diagnosticK1(train_movies, 5, 'hard')
+# diagnosticK1(train_movies, 5, 'soft')
+
+# print '------------------'
+# print 'Initialization:'
+# print '------------------'
+
+# #Setting Parameters
+# N = train_movies.shape[0]
+# M = train_movies.shape[1]
+# V = 5
+# K = 25
+
+# hard_itr = 5
+# soft_itr = 5
+
+# print 'Settings:'
+# print 'N: {}, M: {}, V: {}, K: {}'.format(N, M, V, K)
+# print 'Hard assignment - {} iterations'.format(hard_itr)
+# print 'Soft assignment - {} iterations'.format(soft_itr)
+
+# print '-------'
+
+# #Initialize beta and theta
+# theta = np.ones(K)/K
+# beta = np.random.uniform(1, 100, (K, M, V))
+# for k in xrange(K):
+# 	for m in xrange(M):
+# 		beta[k,m,:] = beta[k,m,:]/np.sum(beta[k,m,:])
+
+# rating_frequency = rating_freq(train_movies, V)
+
+# #print initial results
+# print 'Shape of theta: {}'.format(theta.shape)
+# print 'Shape of beta: {}'.format(beta.shape)
+
+# ll = log_likelihood(train_movies, beta, theta)
+
+# print 'Log likelihood: {}'.format(ll)
+
+# print '------------------'
+# print 'clustering:'
+# print '------------------'
+
+# for i in xrange(hard_itr):
+# 	Q_z = expectation_step(train_movies, beta, theta)
+# 	(beta, theta) = max_step(train_movies, Q_z, V)
+# 	ll = log_likelihood(train_movies, beta, theta)
+# 	print 'Log likelihood: {}'.format(ll)
 
 
-print '------------------'
-print 'Multinomial Mix:'
-print '------------------'
-for i in xrange(soft_itr):
-	Q_z = expectation_step(train_movies, beta, theta)
-	(beta, theta) = max_step(train_movies, Q_z, V)
-	ll = log_likelihood(train_movies, beta, theta)
-	print 'Log likelihood: {}'.format(ll)
+# beta_marg = np.zeros([M,V])
+# for k in xrange(K):
+# 	beta_marg += beta[k,:,:]*theta[k]
+
+# print 'check: {}'.format(np.sum(np.square(beta_marg-rating_frequency)))
 
 
-# print theta
-# print beta
+# print '------------------'
+# print 'Multinomial Mix:'
+# print '------------------'
+# for i in xrange(soft_itr):
+# 	Q_z = expectation_step(train_movies, beta, theta)
+# 	(beta, theta) = max_step(train_movies, Q_z, V)
+# 	ll = log_likelihood(train_movies, beta, theta)
+# 	print 'Log likelihood: {}'.format(ll)
 
 
-# print rating_freq
+# # print theta
+# # print beta
 
-beta_marg = np.zeros([M,V])
-for k in xrange(K):
-	beta_marg += beta[k,:,:]*theta[k]
 
-print 'check: {}'.format(np.sum(np.square(beta_marg-rating_frequency)))
+# # print rating_freq
+
+# beta_marg = np.zeros([M,V])
+# for k in xrange(K):
+# 	beta_marg += beta[k,:,:]*theta[k]
+
+# print 'check: {}'.format(np.sum(np.square(beta_marg-rating_frequency)))
