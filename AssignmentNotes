@@ -6,6 +6,6 @@ Q1E - we need to derive an update for phi,
 
 Q2B - we need to derive an update equation for Q(U,V) = Q(U)Q(V); updating factors mean updating the estimated parameters for Q(U) and Q(V)
 
-Q2C - we need to find online if available; if not, we need to implement
+Q2C - we need to find online if available; if not, we need to implement; consider using 2A as starting estimate for mean of U and V
 
 Q2D - we can use Rus' code
