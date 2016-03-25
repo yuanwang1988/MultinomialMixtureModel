@@ -252,6 +252,34 @@ def log_likelihood(rating_matrix, beta, theta):
 
 	return log_likelihood
 
+def expected_complete_data_loglikelihood(rating_matrix, Q_z, beta, theta):
+	'''
+	Purpose: take the rating_matrix (observed), the old_beta and old_theta and 
+	return the unnormalized log{p(Z|R, old_beta, old_theta)}
+
+	Input:
+		- rating_matrix - NxM - rows are users and columns are movies
+		- Q_z - NxK P(Zn=K|Rn, old beta, theta)
+		- beta - KxMxV - rows are the clusters, columns are the movies, the 3rd axis are probability of each rating (usually 1 to 5)
+		- theta - Kx1 - probablity of each cluster
+
+	Output:
+		- expected complete data log_likelihood - float
+	'''
+
+		#get dimensions:
+	N = rating_matrix.shape[0]
+	M = rating_matrix.shape[1]
+	V = beta.shape[2]
+	K = theta.shape[0]
+
+	log_Q_z = unnorm_log_Q_z(rating_matrix, beta, theta)
+	
+	expected_complete_data_loglikelihood = np.sum(np.multiply(Q_z, log_Q_z))
+
+	return expected_complete_data_loglikelihood
+
+
 
 #################################
 #Helper Functions:
