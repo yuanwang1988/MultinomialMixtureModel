@@ -90,7 +90,7 @@ def initialize_param_estimate(data, hyperparams, K):
 
 def variational_param_update(data, Q_u_mean, Q_u_sigma, Q_v_mean, Q_v_sigma, hyperparams):
 	'''
-	Perform one iteration of variational parameter estimate update.
+	Perform one iteration of variational update on the model parameter estimate.
 
 	 ratings - dok_matrix((N,M), dtype=np.float32)
 	 N - number of users
