@@ -3,6 +3,12 @@ from scipy.sparse import dok_matrix
 
 
 def prepare_data(rating_matrix):
+
+	'''
+	Initialize the data structures for holding data relevant
+	to the Variational Matrix factorization algorithm.
+	'''
+
 	data = {}
 
 	#get dimensions:
@@ -17,10 +23,12 @@ def prepare_data(rating_matrix):
 				sparse_rating_matrix[i,j] = rating_matrix[i,j]
 
 	#construct user_neighb_dic and movie_neighb_dic
+	#user_neighb_dic maps users -> movies he/she rated
 	user_neighb_dic = {}
 	for i in xrange(rating_matrix.shape[0]):
 		user_neighb_dic[i] = np.nonzero(rating_matrix[i,:])[0]
 	
+	#movie_neighb_dic maps movies -> users that rated the move
 	movie_neighb_dic = {}
 	for j in xrange(rating_matrix.shape[1]):
 		movie_neighb_dic[j] = np.nonzero(rating_matrix[:,j])[0]
@@ -36,17 +44,22 @@ def prepare_data(rating_matrix):
 
 
 def initialize_param_estimate(data, hyperparams, K):
-	# ratings - dok_matrix((N,M), dtype=np.float32)
-	# N - number of users
-	# M - number of movies
-	# K - number of factors
-	# user_neighb_dic - {key: index of user, value: list of indices of movies}
-	# movie_neighb_dic - {key: index of movies, value: list of indices of user}
+	'''
+	Initialize the parameter estimates.
 
-	#Q_u_mean - N x K
-	#Q_u_sigma - N x K x K
-	#Q_v_mean - M x K
-	#Q_v_sigma - M x K x K
+	 ratings - dok_matrix((N,M), dtype=np.float32)
+	 N - number of users
+	 M - number of movies
+	 K - number of factors
+	 user_neighb_dic - {key: index of user, value: list of indices of movies}
+	 movie_neighb_dic - {key: index of movies, value: list of indices of user}
+
+	 Q_u_mean - N x K
+	 Q_u_sigma - N x K x K
+	 Q_v_mean - M x K
+	 Q_v_sigma - M x K x K
+
+	'''
 
 	#sigma, sigma_u, sigma_v
 
@@ -76,17 +89,21 @@ def initialize_param_estimate(data, hyperparams, K):
 
 
 def variational_param_update(data, Q_u_mean, Q_u_sigma, Q_v_mean, Q_v_sigma, hyperparams):
-	# ratings - dok_matrix((N,M), dtype=np.float32)
-	# N - number of users
-	# M - number of movies
-	# K - number of factors
-	# user_neighb_dic - {key: index of user, value: list of indices of movies}
-	# movie_neighb_dic - {key: index of movies, value: list of indices of user}
+	'''
+	Perform one iteration of variational parameter estimate update.
 
-	#Q_u_mean - N x K
-	#Q_u_sigma - N x K x K
-	#Q_v_mean - M x K
-	#Q_v_sigma - M x K x K
+	 ratings - dok_matrix((N,M), dtype=np.float32)
+	 N - number of users
+	 M - number of movies
+	 K - number of factors
+	 user_neighb_dic - {key: index of user, value: list of indices of movies rated}
+	 movie_neighb_dic - {key: index of movies, value: list of indices of user that rated movie} 
+
+	 Q_u_mean - N x K
+	 Q_u_sigma - N x K x K
+	 Q_v_mean - M x K
+	 Q_v_sigma - M x K x K
+	'''
 
 	#sigma, sigma_u, sigma_v
 
@@ -138,18 +155,10 @@ def variational_param_update(data, Q_u_mean, Q_u_sigma, Q_v_mean, Q_v_sigma, hyp
 		neighbs_of_i = user_neighb_dic[i]
 		sum_rij_v_meanj = np.zeros(K)
 
-		# print 'sum_rij_v_meanj shape: {}'.format(sum_rij_v_meanj.shape)
-
 		for j in neighbs_of_i:
 			sum_rij_v_meanj = sum_rij_v_meanj+ratings[i,j]*Q_v_mean[j,:]
-			#print 'Q_v_mean shape: {}'.format(Q_v_mean[j,:].shape)
-
-		# print 'sum_rij_v_meanj shape: {}'.format(sum_rij_v_meanj.shape)
-		# print sum_rij_v_meanj
 
 		Q_u_mean_i = np.square(1/sigma)*np.matmul(Q_u_sigma_i, sum_rij_v_meanj)
-
-		# print 'Q_u_sigma_i shape: {}'.format(Q_u_mean_i.shape)
 
 		############################
 		#store Q_u_mean, Q_u_sigma
@@ -170,12 +179,6 @@ def variational_param_update(data, Q_u_mean, Q_u_sigma, Q_v_mean, Q_v_sigma, hyp
 	######################################
 	for j in xrange(M):
 		Q_v_sigma[j,:,:] = np.linalg.inv(S_tensor[j,:,:])
-		# print 't_array_j shape: {}'.format(t_array[j,:].shape)
-		# print t_array[j,:]
-		# print 'Q_v_sigma shape: {}'.format(Q_v_sigma[j,:,:].shape)
-		# print Q_v_sigma[j,:,:]
-		# print 'product shape: {}'.format(np.matmul(Q_v_sigma[j,:,:], t_array[j,:]).shape)
-		# print np.matmul(Q_v_sigma[j,:,:], t_array[j,:])
 
 		temp =  np.matmul(Q_v_sigma[j,:,:], t_array[j,:])
 
@@ -186,13 +189,14 @@ def variational_param_update(data, Q_u_mean, Q_u_sigma, Q_v_mean, Q_v_sigma, hyp
 
 def RMSEeval(test_ratings, Q_u_mean, Q_u_sigma, Q_v_mean, Q_v_sigma, hyperparams):
 
+	'''
+	Compute the RMSE between the predicted rating
+	and actual ratings
+
+	'''
+
 	pred_out = np.matmul(Q_u_mean, Q_v_mean.T)
 	sqr_diff = np.square(test_ratings - pred_out)
-	
-	# print 'Q_u_mean shape {}'.format(Q_u_mean.shape)
-	# print 'Q_v_mean shape {}'.format(Q_v_mean.shape)
-	# print 'pred_out shape {}'.format(pred_out.shape)
-	# print 'sqr_diff shape {}'.format(sqr_diff.shape)
 
 	sqr_diff_masked = np.ma.masked_array(sqr_diff, mask = test_ratings==0)
 	RMSE = np.sqrt(np.mean(sqr_diff_masked))
